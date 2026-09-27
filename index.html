@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Linker</title>
     <style>
-        /* Плоский серый дизайн, углы строго 0px */
+        /* Исходный дизайн для создания ссылки (серый, плоский) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: #0d1117; 
@@ -15,143 +15,52 @@
             display: flex;
             justify-content: center;
         }
-
         .wrapper {
             width: 100%;
             max-width: 650px;
             background-color: #161b22; 
             border: 1px solid #30363d; 
-            border-radius: 0px; 
             padding: 25px;
             box-sizing: border-box;
         }
-
-        /* Белый текст сверху над полем */
-        .label-text {
-            font-size: 14px;
-            font-weight: 500;
-            margin-bottom: 10px;
-            color: #ffffff; /* Строго белый цвет */
-            display: block;
-        }
-
-        /* Поле ввода текста */
+        .label-text { font-size: 14px; font-weight: 500; margin-bottom: 10px; color: #ffffff; display: block; }
         textarea {
-            width: 100%;
-            height: 280px;
-            background-color: #0d1117; 
-            color: #e6edf3;
-            border: 1px solid #30363d;
-            border-radius: 0px; 
-            padding: 12px;
-            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
-            font-size: 13px;
-            resize: none;
-            box-sizing: border-box;
+            width: 100%; height: 280px; background-color: #0d1117; color: #e6edf3;
+            border: 1px solid #30363d; padding: 12px; resize: none; box-sizing: border-box;
+            font-family: monospace; font-size: 13px;
         }
-
-        textarea:focus {
-            outline: none;
-            border-color: #58a6ff; 
-        }
-
-        /* Кнопка генерации */
+        textarea:focus { outline: none; border-color: #58a6ff; }
         .btn {
+            display: block; width: 100%; background-color: #21262d; color: #c9d1d9;
+            border: 1px solid #30363d; padding: 12px; font-size: 13px; font-weight: 600;
+            cursor: pointer; margin-top: 15px;
+        }
+        .btn:hover { background-color: #30363d; color: #f0f6fc; }
+        .result-panel { display: none; margin-top: 25px; background-color: #0d1117; border: 1px solid #30363d; padding: 16px; }
+        .result-title { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; }
+        .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
+        .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
+
+        /* Стиль для режима «ТУПО ТЕКСТ» (активируется скриптом) */
+        body.raw-text-mode {
+            background-color: #000000; /* Полностью черный экран */
+            color: #ffffff; /* Полностью белый текст */
             display: block;
-            width: 100%;
-            background-color: #21262d; 
-            color: #c9d1d9;
-            border: 1px solid #30363d;
-            border-radius: 0px; 
-            padding: 12px;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 15px;
-            transition: background-color 0.1s, color 0.1s;
-        }
-
-        .btn:hover {
-            background-color: #30363d;
-            color: #f0f6fc;
-        }
-
-        /* Блок результата */
-        .result-panel {
-            display: none;
-            margin-top: 25px;
-            background-color: #0d1117;
-            border: 1px solid #30363d;
-            border-radius: 0px; 
-            padding: 16px;
-        }
-
-        .result-title {
-            font-size: 12px;
-            font-weight: 600;
-            color: #8b949e;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Поле с готовой ссылкой */
-        .link-field {
-            width: 100%;
-            padding: 10px;
-            background-color: #161b22;
-            color: #58a6ff;
-            border: 1px solid #30363d;
-            border-radius: 0px; 
+            padding: 20px;
             font-family: monospace;
-            font-size: 13px;
-            box-sizing: border-box;
-            cursor: pointer;
+            font-size: 14px;
+            white-space: pre-wrap; /* Сохраняет все переносы строк и отступы */
+            word-wrap: break-word;
         }
-
-        .info-text {
-            font-size: 11px;
-            color: #8b949e;
-            margin-top: 8px;
-            margin-bottom: 0;
-        }
-
-        /* Индикатор режима просмотра */
-        .view-mode-bar {
-            display: none;
-            background-color: #161b22;
-            border: 1px solid #388bfd;
-            color: #58a6ff;
-            padding: 12px;
-            border-radius: 0px; 
-            font-size: 13px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .view-mode-bar a {
-            color: #f0f6fc;
-            font-weight: 600;
-            margin-left: 10px;
-            text-decoration: none;
-        }
-        .view-mode-bar a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
-<div class="wrapper">
-    
-    <div id="viewMode" class="view-mode-bar">
-        Viewing shared chart data. <a href="#" id="newBtn">Create New</a>
-    </div>
-
-    <!-- Текст-метка над полем ввода -->
-    <label class="label-text" id="labelText">Paste your chart data here:</label>
-    
+<!-- Этот блок полностью сотрется и исчезнет, если в ссылке есть текст -->
+<div class="wrapper" id="mainGui">
+    <label class="label-text">Paste your chart data here:</label>
     <textarea id="textBox" placeholder="..."></textarea>
-    
-    <button id="actionBtn" class="btn" onclick="generateLink()">Generate Roblox Link</button>
+    <button class="btn" onclick="generateLink()">Generate Roblox Link</button>
 
     <div id="resultBox" class="result-panel">
         <div class="result-title">Generated Link</div>
@@ -161,35 +70,34 @@
 </div>
 
 <script>
-    const textBox = document.getElementById('textBox');
-    const actionBtn = document.getElementById('actionBtn');
-    const resultBox = document.getElementById('resultBox');
-    const linkOutput = document.getElementById('linkOutput');
-    const viewMode = document.getElementById('viewMode');
-    const newBtn = document.getElementById('newBtn');
-    const labelText = document.getElementById('labelText');
-
+    // Проверяем, открыта ли ссылка с текстом
     window.addEventListener('DOMContentLoaded', () => {
         if (window.location.hash) {
             try {
+                // Извлекаем и расшифровываем текст
                 const base64 = window.location.hash.substring(1);
                 const decodedText = decodeURIComponent(atob(base64));
                 
-                textBox.value = decodedText;
-                textBox.setAttribute('readonly', 'true');
+                // Уничтожаем весь интерфейс (удаляем блок mainGui)
+                document.getElementById('mainGui').remove();
                 
-                // Меняем текст над полем, если открыли чью-то ссылку
-                labelText.textContent = "Shared chart data:";
+                // Включаем режим чистого текста для страницы
+                document.body.className = "raw-text-mode";
                 
-                viewMode.style.display = 'block';
-                actionBtn.style.display = 'none';
+                // Выводим голый текст прямо на экран
+                document.body.textContent = decodedText;
             } catch (e) {
-                alert("Error: Couldn't decode the chart data from this URL.");
+                document.body.textContent = "Error: Invalid or broken link data.";
             }
         }
     });
 
+    // Функция генерации ссылки (работает так же)
     function generateLink() {
+        const textBox = document.getElementById('textBox');
+        const resultBox = document.getElementById('resultBox');
+        const linkOutput = document.getElementById('linkOutput');
+        
         const text = textBox.value.trim();
         if (!text) {
             alert("Please paste your chart data first!");
@@ -201,15 +109,8 @@
         
         linkOutput.value = finalUrl;
         resultBox.style.display = 'block';
-        
         resultBox.scrollIntoView({ behavior: 'smooth' });
     }
-
-    newBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        window.location.hash = '';
-        window.location.reload();
-    });
 </script>
 
 </body>
