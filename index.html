@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Linker</title>
     <style>
-        /* Исходный дизайн для создания ссылки (серый, плоский) */
+        /* Плоский серый дизайн для главного экрана */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: #0d1117; 
@@ -36,80 +36,122 @@
             cursor: pointer; margin-top: 15px;
         }
         .btn:hover { background-color: #30363d; color: #f0f6fc; }
+        .btn:disabled { background-color: #0d1117; color: #8b949e; cursor: not-allowed; }
         .result-panel { display: none; margin-top: 25px; background-color: #0d1117; border: 1px solid #30363d; padding: 16px; }
         .result-title { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; }
         .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
         .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
 
-        /* Стиль для режима «ТУПО ТЕКСТ» (активируется скриптом) */
+        /* Режим «ТУПО ТЕКСТ» для отображения карт */
         body.raw-text-mode {
-            background-color: #000000; /* Полностью черный экран */
-            color: #ffffff; /* Полностью белый текст */
+            background-color: #000000; 
+            color: #ffffff; 
             display: block;
             padding: 20px;
             font-family: monospace;
             font-size: 14px;
-            white-space: pre-wrap; /* Сохраняет все переносы строк и отступы */
+            white-space: pre-wrap; 
             word-wrap: break-word;
         }
     </style>
 </head>
 <body>
 
-<!-- Этот блок полностью сотрется и исчезнет, если в ссылке есть текст -->
 <div class="wrapper" id="mainGui">
     <label class="label-text">Paste your chart data here:</label>
     <textarea id="textBox" placeholder="..."></textarea>
-    <button class="btn" onclick="generateLink()">Generate Roblox Link</button>
+    <button class="btn" id="actionBtn" onclick="generateShortLink()">Generate Short Roblox Link</button>
 
     <div id="resultBox" class="result-panel">
-        <div class="result-title">Generated Link</div>
+        <div class="result-title">Short Link Generated:</div>
         <input type="text" id="linkOutput" class="link-field" readonly onclick="this.select()">
         <p class="info-text">Click inside the field to auto-select, then press Ctrl+C to copy.</p>
     </div>
 </div>
 
 <script>
-    // Проверяем, открыта ли ссылка с текстом
-    window.addEventListener('DOMContentLoaded', () => {
+    // Постоянный адрес бесплатного blob-хранилища данных
+    const API_URL = "https://jsonblob.com";
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        // Если в адресной строке после знака # есть ID
         if (window.location.hash) {
+            const blobId = window.location.hash.substring(1);
+            
+            // Уничтожаем интерфейс, готовимся выводить только чистый текст
+            document.getElementById('mainGui').remove();
+            document.body.className = "raw-text-mode";
+            document.body.textContent = "Loading chart data from database, please wait...";
+
             try {
-                // Извлекаем и расшифровываем текст
-                const base64 = window.location.hash.substring(1);
-                const decodedText = decodeURIComponent(atob(base64));
+                // Скачиваем текст по ID из базы данных
+                const response = await fetch(`${API_URL}/${blobId}`);
+                if (!response.ok) throw new Error();
                 
-                // Уничтожаем весь интерфейс (удаляем блок mainGui)
-                document.getElementById('mainGui').remove();
+                const data = await response.json();
                 
-                // Включаем режим чистого текста для страницы
-                document.body.className = "raw-text-mode";
-                
-                // Выводим голый текст прямо на экран
-                document.body.textContent = decodedText;
+                // Выводим полученный текст (если это была упакованная строка)
+                document.body.textContent = typeof data === 'object' ? JSON.stringify(data, null, 4) : data;
             } catch (e) {
-                document.body.textContent = "Error: Invalid or broken link data.";
+                document.body.textContent = "Error: Failed to fetch chart data. The link might be expired or broken.";
             }
         }
     });
 
-    // Функция генерации ссылки (работает так же)
-    function generateLink() {
+    // Функция сохранения текста и создания короткой ссылки
+    async function generateShortLink() {
         const textBox = document.getElementById('textBox');
         const resultBox = document.getElementById('resultBox');
         const linkOutput = document.getElementById('linkOutput');
+        const actionBtn = document.getElementById('actionBtn');
         
-        const text = textBox.value.trim();
+        let text = textBox.value.trim();
         if (!text) {
             alert("Please paste your chart data first!");
             return;
         }
 
-        const base64 = btoa(encodeURIComponent(text));
-        const finalUrl = window.location.origin + window.location.pathname + '#' + base64;
-        
-        linkOutput.value = finalUrl;
-        resultBox.style.display = 'block';
-        resultBox.scrollIntoView({ behavior: 'smooth' });
+        // Пытаемся распарсить текст как JSON, чтобы сохранить структуру. 
+        // Если это обычный текст, сохраним его как простую строку.
+        let payload;
+        try {
+            payload = JSON.parse(text);
+        } catch(e) {
+            payload = text;
+        }
+
+        actionBtn.disabled = true;
+        actionBtn.textContent = "Saving text to cloud...";
+
+        try {
+            // Отправляем POST запрос в jsonblob для сохранения текста
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error();
+
+            // Читаем заголовки, чтобы вытащить ID созданного ресурса
+            const locationHeader = response.headers.get("Location");
+            const blobId = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
+
+            // Формируем красивую короткую ссылку с ID
+            const finalUrl = window.location.origin + window.location.pathname + '#' + blobId;
+            
+            linkOutput.value = finalUrl;
+            resultBox.style.display = 'block';
+            resultBox.scrollIntoView({ behavior: 'smooth' });
+        } catch (e) {
+            alert("Error: Couldn't generate short link. Try again later.");
+        } finally {
+            actionBtn.disabled = false;
+            actionBtn.textContent = "Generate Short Roblox Link";
+        }
     }
 </script>
 
