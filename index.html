@@ -5,35 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Linker</title>
     <style>
-        /* Плоский серый дизайн для главного экрана */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: #0d1117; 
-            color: #c9d1d9;
-            margin: 0;
-            padding: 40px 20px;
-            display: flex;
-            justify-content: center;
+            background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 40px 20px; display: flex; justify-content: center;
         }
-        .wrapper {
-            width: 100%;
-            max-width: 650px;
-            background-color: #161b22; 
-            border: 1px solid #30363d; 
-            padding: 25px;
-            box-sizing: border-box;
-        }
+        .wrapper { width: 100%; max-width: 650px; background-color: #161b22; border: 1px solid #30363d; padding: 25px; box-sizing: border-box; }
         .label-text { font-size: 14px; font-weight: 500; margin-bottom: 10px; color: #ffffff; display: block; }
         textarea {
             width: 100%; height: 280px; background-color: #0d1117; color: #e6edf3;
-            border: 1px solid #30363d; padding: 12px; resize: none; box-sizing: border-box;
-            font-family: monospace; font-size: 13px;
+            border: 1px solid #30363d; padding: 12px; resize: none; box-sizing: border-box; font-family: monospace; font-size: 13px;
         }
         textarea:focus { outline: none; border-color: #58a6ff; }
         .btn {
             display: block; width: 100%; background-color: #21262d; color: #c9d1d9;
-            border: 1px solid #30363d; padding: 12px; font-size: 13px; font-weight: 600;
-            cursor: pointer; margin-top: 15px;
+            border: 1px solid #30363d; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 15px;
         }
         .btn:hover { background-color: #30363d; color: #f0f6fc; }
         .btn:disabled { background-color: #0d1117; color: #8b949e; cursor: not-allowed; }
@@ -42,16 +27,10 @@
         .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
         .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
 
-        /* Режим «ТУПО ТЕКСТ» для отображения карт */
+        /* Стиль ДЛЯ РЕЖИМА "ТУПО ТЕКСТ" */
         body.raw-text-mode {
-            background-color: #000000; 
-            color: #ffffff; 
-            display: block;
-            padding: 20px;
-            font-family: monospace;
-            font-size: 14px;
-            white-space: pre-wrap; 
-            word-wrap: break-word;
+            background-color: #000000; color: #ffffff; display: block; padding: 20px;
+            font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word;
         }
     </style>
 </head>
@@ -60,45 +39,60 @@
 <div class="wrapper" id="mainGui">
     <label class="label-text">Paste your chart data here:</label>
     <textarea id="textBox" placeholder="..."></textarea>
-    <button class="btn" id="actionBtn" onclick="generateShortLink()">Generate Short Roblox Link</button>
+    <button class="btn" id="actionBtn" onclick="generateShortLink()">Generate Ultra-Short Link</button>
 
     <div id="resultBox" class="result-panel">
-        <div class="result-title">Short Link Generated:</div>
+        <div class="result-title">Your Ultra-Short Link:</div>
         <input type="text" id="linkOutput" class="link-field" readonly onclick="this.select()">
         <p class="info-text">Click inside the field to auto-select, then press Ctrl+C to copy.</p>
     </div>
 </div>
 
 <script>
-    // Постоянный адрес бесплатного blob-хранилища данных
     const API_URL = "https://jsonblob.com";
+    const CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+    // Математическое сжатие числа в короткий код и обратно
+    function toBase62(num) {
+        let str = "";
+        while (num > 0) {
+            str = CHARSET[num % 62] + str;
+            num = Math.floor(num / 62);
+        }
+        return str || "0";
+    }
+
+    function fromBase62(str) {
+        let num = 0;
+        for (let i = 0; i < str.length; i++) {
+            num = num * 62 + CHARSET.indexOf(str[i]);
+        }
+        return num;
+    }
 
     window.addEventListener('DOMContentLoaded', async () => {
-        // Если в адресной строке после знака # есть ID
         if (window.location.hash) {
-            const blobId = window.location.hash.substring(1);
+            const shortCode = window.location.hash.substring(1);
             
-            // Уничтожаем интерфейс, готовимся выводить только чистый текст
             document.getElementById('mainGui').remove();
             document.body.className = "raw-text-mode";
-            document.body.textContent = "Loading chart data from database, please wait...";
+            document.body.textContent = "Loading chart data...";
 
             try {
-                // Скачиваем текст по ID из базы данных
+                // Превращаем буквы обратно в длинный ID
+                const blobId = fromBase62(shortCode).toString();
+
                 const response = await fetch(`${API_URL}/${blobId}`);
                 if (!response.ok) throw new Error();
                 
                 const data = await response.json();
-                
-                // Выводим полученный текст (если это была упакованная строка)
                 document.body.textContent = typeof data === 'object' ? JSON.stringify(data, null, 4) : data;
             } catch (e) {
-                document.body.textContent = "Error: Failed to fetch chart data. The link might be expired or broken.";
+                document.body.textContent = "Error: Failed to fetch chart data. The link might be expired.";
             }
         }
     });
 
-    // Функция сохранения текста и создания короткой ссылки
     async function generateShortLink() {
         const textBox = document.getElementById('textBox');
         const resultBox = document.getElementById('resultBox');
@@ -106,51 +100,40 @@
         const actionBtn = document.getElementById('actionBtn');
         
         let text = textBox.value.trim();
-        if (!text) {
-            alert("Please paste your chart data first!");
-            return;
-        }
+        if (!text) return alert("Please paste your chart data first!");
 
-        // Пытаемся распарсить текст как JSON, чтобы сохранить структуру. 
-        // Если это обычный текст, сохраним его как простую строку.
         let payload;
-        try {
-            payload = JSON.parse(text);
-        } catch(e) {
-            payload = text;
-        }
+        try { payload = JSON.parse(text); } catch(e) { payload = text; }
 
         actionBtn.disabled = true;
-        actionBtn.textContent = "Saving text to cloud...";
+        actionBtn.textContent = "Processing...";
 
         try {
-            // Отправляем POST запрос в jsonblob для сохранения текста
             const response = await fetch(API_URL, {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json"
-                },
+                headers: { "Content-Type": "application/json", "Accept": "application/json" },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) throw new Error();
 
-            // Читаем заголовки, чтобы вытащить ID созданного ресурса
             const locationHeader = response.headers.get("Location");
             const blobId = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
+            
+            // Сжимаем гигантский ID в супер-короткий код
+            const shortCode = toBase62(BigInt(blobId));
 
-            // Формируем красивую короткую ссылку с ID
-            const finalUrl = window.location.origin + window.location.pathname + '#' + blobId;
+            // Итоговая короткая ссылка
+            const finalUrl = window.location.origin + window.location.pathname + '#' + shortCode;
             
             linkOutput.value = finalUrl;
             resultBox.style.display = 'block';
             resultBox.scrollIntoView({ behavior: 'smooth' });
         } catch (e) {
-            alert("Error: Couldn't generate short link. Try again later.");
+            alert("Error: Couldn't generate short link.");
         } finally {
             actionBtn.disabled = false;
-            actionBtn.textContent = "Generate Short Roblox Link";
+            actionBtn.textContent = "Generate Ultra-Short Link";
         }
     }
 </script>
