@@ -1,107 +1,203 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chart Linker</title>
+    <title>GitHub Link Generator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        /* Плоский серый дизайн в стиле GitHub для главного экрана */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-            background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 40px 20px; display: flex; justify-content: center;
-        }
-        .wrapper { width: 100%; max-width: 650px; background-color: #161b22; border: 1px solid #30363d; padding: 25px; box-sizing: border-box; }
-        .label-text { font-size: 14px; font-weight: 500; margin-bottom: 10px; color: #ffffff; display: block; }
-        textarea {
-            width: 100%; height: 280px; background-color: #0d1117; color: #e6edf3;
-            border: 1px solid #30363d; padding: 12px; resize: none; box-sizing: border-box; font-family: monospace; font-size: 13px;
-        }
-        textarea:focus { outline: none; border-color: #58a6ff; }
-        .btn {
-            display: block; width: 100%; background-color: #21262d; color: #c9d1d9;
-            border: 1px solid #30363d; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 15px;
-        }
-        .btn:hover { background-color: #30363d; color: #f0f6fc; }
-        .result-panel { display: none; margin-top: 25px; background-color: #0d1117; border: 1px solid #30363d; padding: 16px; }
-        .result-title { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; }
-        .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
-        .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
-
-        /* СТИЛЬ РЕЖИМА "ТУПО ТЕКСТ" НА ЧЕРНОМ ФОНЕ */
-        body.raw-text-mode {
-            background-color: #000000; color: #ffffff; display: block; padding: 20px;
-            font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word;
+            font-family: 'Inter', sans-serif;
         }
     </style>
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex items-center justify-center p-4">
 
-<div class="wrapper" id="mainGui">
-    <label class="label-text">Paste your chart data here:</label>
-    <textarea id="textBox" placeholder="..."></textarea>
-    <button class="btn" onclick="generateLink()">Generate Roblox Link</button>
+    <div class="max-w-md w-full bg-slate-800/80 backdrop-blur-md rounded-2xl p-6 md:p-8 shadow-2xl border border-slate-700/50">
+        
+        <!-- Header -->
+        <div class="flex items-center gap-3 mb-6">
+            <div class="p-3 bg-slate-700/60 rounded-xl">
+                <svg class="w-7 h-7 fill-current text-white" viewBox="0 0 24 24">
+                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold tracking-tight">GitHub Linker</h1>
+                <p class="text-xs text-slate-400">Преобразователь текста в ссылку</p>
+            </div>
+        </div>
 
-    <div id="resultBox" class="result-panel">
-        <div class="result-title">Generated Link:</div>
-        <input type="text" id="linkOutput" class="link-field" readonly onclick="this.select()">
-        <p class="info-text">Click inside the field to auto-select, then press Ctrl+C to copy.</p>
+        <!-- Form Elements -->
+        <div class="space-y-4">
+            <div>
+                <label for="textInput" class="block text-xs font-medium text-slate-300 mb-1">
+                    Вставьте текст, имя пользователя или репозиторий
+                </label>
+                <input 
+                    type="text" 
+                    id="textInput" 
+                    placeholder="например: torvalds/linux или github.com/facebook/react" 
+                    class="w-full px-4 py-3 bg-slate-900/60 border border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 rounded-xl text-slate-100 placeholder-slate-500 outline-none transition-all text-sm"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="flex gap-2">
+                <button 
+                    id="convertBtn" 
+                    class="flex-1 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-xl transition-all shadow-lg shadow-indigo-600/20 text-sm"
+                >
+                    Создать ссылку
+                </button>
+                <button 
+                    id="clearBtn" 
+                    class="bg-slate-700/50 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl transition-all text-sm font-medium"
+                >
+                    Очистить
+                </button>
+            </div>
+        </div>
+
+        <!-- Output Result Section -->
+        <div id="resultContainer" class="mt-6 pt-6 border-t border-slate-700/50 hidden">
+            <span class="block text-xs font-medium text-slate-400 mb-2">Результат:</span>
+            
+            <div class="bg-slate-900/80 rounded-xl p-4 border border-slate-700 flex flex-col gap-3">
+                <a 
+                    id="linkOutput" 
+                    href="#" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    class="text-indigo-400 hover:text-indigo-300 font-medium text-sm break-all flex items-center gap-1.5 hover:underline"
+                >
+                    <span></span>
+                    <svg class="w-4 h-4 inline shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                </a>
+
+                <div class="flex gap-2 mt-1">
+                    <a 
+                        id="openBtn" 
+                        href="#" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-center py-2 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1"
+                    >
+                        Перейти
+                    </a>
+                    <button 
+                        id="copyBtn" 
+                        class="flex-1 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 py-2 px-3 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-1"
+                    >
+                        Копировать
+                    </button>
+                </div>
+            </div>
+            
+            <p id="copyStatus" class="text-xs text-center text-emerald-400 mt-2 hidden">
+                Ссылка скопирована в буфер обмена!
+            </p>
+        </div>
+
     </div>
-</div>
 
-<script>
-    // Безопасное декодирование Base64 с поддержкой UTF-8 (русских букв/символов)
-    function b64ToUtf8(str) {
-        return decodeURIComponent(atob(str).split('').map(function(c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-    }
+    <script>
+        // DOM Elements
+        const textInput = document.getElementById('textInput');
+        const convertBtn = document.getElementById('convertBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const resultContainer = document.getElementById('resultContainer');
+        const linkOutput = document.getElementById('linkOutput');
+        const openBtn = document.getElementById('openBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const copyStatus = document.getElementById('copyStatus');
 
-    // Безопасное кодирование в Base64 с поддержкой UTF-8
-    function utf8ToB64(str) {
-        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
-            return String.fromCharCode('0x' + p1);
-        }));
-    }
+        // Main conversion logic
+        function processTextToGitHubUrl(text) {
+            let cleaned = text.trim();
+            if (!cleaned) return '';
 
-    window.addEventListener('DOMContentLoaded', () => {
-        // Если в адресной строке есть хэш после знака #
-        if (window.location.hash) {
-            try {
-                const base64Data = window.location.hash.substring(1);
-                const decodedText = b64ToUtf8(base64Data);
+            // Remove leading/trailing slashes
+            cleaned = cleaned.replace(/^\/+|\/+$/g, '');
+
+            // If it already starts with http/https
+            if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) {
+                // Ensure it's a github link or force it to github format if just url provided
+                if (!cleaned.includes('github.com')) {
+                    const match = cleaned.match(/https?:\/\/(.+)/);
+                    if (match) return `https://github.com/${match[1]}`;
+                }
+                return cleaned;
+            }
+
+            // If it starts with github.com
+            if (cleaned.startsWith('github.com/')) {
+                return `https://${cleaned}`;
+            }
+
+            // If user enters format user/repo or username
+            return `https://github.com/${cleaned}`;
+        }
+
+        function generateLink() {
+            const rawText = textInput.value;
+            const fullUrl = processTextToGitHubUrl(rawText);
+
+            if (fullUrl) {
+                linkOutput.href = fullUrl;
+                linkOutput.querySelector('span').textContent = fullUrl;
+                openBtn.href = fullUrl;
                 
-                -- Уничтожаем весь GUI генератора
-                document.getElementById('mainGui').remove();
-                
-                -- Активируем полноэкранный текстовый режим
-                document.body.className = "raw-text-mode";
-                document.body.textContent = decodedText;
-            } catch (e) {
-                document.body.textContent = "Error: Failed to decode text data from URL. The link might be corrupted.";
+                resultContainer.classList.remove('hidden');
+                copyStatus.classList.add('hidden');
+            } else {
+                resultContainer.classList.add('hidden');
             }
         }
-    });
 
-    function generateLink() {
-        const textBox = document.getElementById('textBox');
-        const resultBox = document.getElementById('resultBox');
-        const linkOutput = document.getElementById('linkOutput');
-        
-        const text = textBox.value.trim();
-        if (!text) {
-            alert("Please paste your chart data first!");
-            return;
+        // Copy logic using execCommand for better iFrame compatibility
+        function copyToClipboard(text) {
+            const tempInput = document.createElement('input');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            // Show feedback
+            copyStatus.classList.remove('hidden');
+            setTimeout(() => {
+                copyStatus.classList.add('hidden');
+            }, 2500);
         }
 
-        // Кодируем текст прямо в хэш адресной строки
-        const base64Part = utf8ToB64(text);
-        const finalUrl = window.location.origin + window.location.pathname + '#' + base64Part;
-        
-        linkOutput.value = finalUrl;
-        resultBox.style.display = 'block';
-        resultBox.scrollIntoView({ behavior: 'smooth' });
-    }
-</script>
+        // Event Listeners
+        convertBtn.addEventListener('click', generateLink);
 
+        textInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                generateLink();
+            } else {
+                generateLink(); // Live update
+            }
+        });
+
+        clearBtn.addEventListener('click', () => {
+            textInput.value = '';
+            resultContainer.classList.add('hidden');
+            textInput.focus();
+        });
+
+        copyBtn.addEventListener('click', () => {
+            const currentUrl = linkOutput.href;
+            if (currentUrl && currentUrl !== '#') {
+                copyToClipboard(currentUrl);
+            }
+        });
+    </script>
 </body>
 </html>
