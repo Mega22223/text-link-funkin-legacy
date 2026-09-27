@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Linker</title>
     <style>
-        /* Серый плоский интерфейс для создания ссылки */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 40px 20px; display: flex; justify-content: center;
@@ -28,7 +27,6 @@
         .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
         .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
 
-        /* СТИЛЬ РЕЖИМА "ТУПО ТЕКСТ" ДЛЯ ОТОБРАЖЕНИЯ */
         body.raw-text-mode {
             background-color: #000000; color: #ffffff; display: block; padding: 20px;
             font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word;
@@ -50,49 +48,47 @@
 </div>
 
 <script>
-    // Публичный бесплатный API для хранения текстовых данных
-    const API_URL = "https://jsonblob.com";
+    const API_URL = "https://jsonblob.com/api/jsonBlob";
     const CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    // Сжатие длинного числового ID в короткий буквенный код
+    // Функция сжатия BigInt (большого числа) в короткий код
     function toBase62(num) {
+        let n = BigInt(num);
         let str = "";
-        while (num > 0) {
-            str = CHARSET[num % 62] + str;
-            num = Math.floor(num / 62);
+        const base = BigInt(62);
+        while (n > 0n) {
+            str = CHARSET[Number(n % base)] + str;
+            n = n / base;
         }
         return str || "0";
     }
 
+    // Функция восстановления BigInt из короткого кода обратно
     function fromBase62(str) {
-        let num = 0;
+        let num = 0n;
+        const base = BigInt(62);
         for (let i = 0; i < str.length; i++) {
-            num = num * 62 + CHARSET.indexOf(str[i]);
+            num = num * base + BigInt(CHARSET.indexOf(str[i]));
         }
-        return num;
+        return num.toString();
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-        // Если перешли по ссылке с ID (например, #z7A3x)
         if (window.location.hash) {
             const shortCode = window.location.hash.substring(1);
             
-            // Уничтожаем интерфейс генератора
             document.getElementById('mainGui').remove();
             document.body.className = "raw-text-mode";
             document.body.textContent = "Loading chart data...";
 
             try {
-                // Превращаем код обратно в ID базы данных
-                const blobId = fromBase62(shortCode).toString();
+                // Восстанавливаем точный ID без округлений математики
+                const blobId = fromBase62(shortCode);
 
-                // Скачиваем данные напрямую с бесплатного хранилища
                 const response = await fetch(`${API_URL}/${blobId}`);
                 if (!response.ok) throw new Error();
                 
                 const data = await response.json();
-                
-                // Выводим только ЧИСТЫЙ ТЕКСТ на черный экран
                 document.body.textContent = typeof data === 'object' ? JSON.stringify(data, null, 4) : data;
             } catch (e) {
                 document.body.textContent = "Error: Failed to fetch chart data. The link might be expired.";
@@ -100,7 +96,6 @@
         }
     });
 
-    // Функция сохранения текста
     async function generateShortLink() {
         const textBox = document.getElementById('textBox');
         const resultBox = document.getElementById('resultBox');
@@ -117,7 +112,6 @@
         actionBtn.textContent = "Saving to free cloud storage...";
 
         try {
-            // Кидаем POST запрос на сайт бесплатного хранения
             const response = await fetch(API_URL, {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "Accept": "application/json" },
@@ -126,14 +120,13 @@
 
             if (!response.ok) throw new Error();
 
-            // Забираем ID, который выдал нам сервис
             const locationHeader = response.headers.get("Location");
-            const blobId = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
+            // Извлекаем строку с ID
+            const blobIdStr = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
             
-            // Переводим ID в более короткий код
-            const shortCode = toBase62(BigInt(blobId));
+            // Кодируем её с помощью исправленной BigInt функции
+            const shortCode = toBase62(blobIdStr);
 
-            // Формируем итоговую ссылку
             const finalUrl = window.location.origin + window.location.pathname + '#' + shortCode;
             
             linkOutput.value = finalUrl;
