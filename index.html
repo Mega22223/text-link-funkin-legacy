@@ -4,11 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Text → Link</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.5.0/lz-string.min.js"></script>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --border:#2a2f3a;
     --text:#e8eaed; --muted:#9aa3b2; --accent:#5b8cff; --accent2:#4173e6;
+    --ok:#3ecf7a; --warn:#f5a623; --bad:#ff6b6b;
   }
   *{box-sizing:border-box;}
   body{
@@ -23,7 +23,7 @@
   h1{font-size:20px; margin:0 0 4px;}
   p.sub{color:var(--muted); font-size:13px; margin:0 0 20px;}
   textarea{
-    width:100%; min-height:160px; resize:vertical; background:#0d0f14; color:var(--text);
+    width:100%; min-height:200px; resize:vertical; background:#0d0f14; color:var(--text);
     border:1px solid var(--border); border-radius:8px; padding:12px; font-size:14px;
     font-family:inherit; line-height:1.5;
   }
@@ -33,37 +33,74 @@
     padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; margin-top:14px;
   }
   button:hover{background:var(--accent2);}
+  button:disabled{opacity:.5; cursor:not-allowed;}
   button.secondary{background:#2a2f3a;}
   button.secondary:hover{background:#343a48;}
   .row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
-  .link-box{
-    margin-top:16px; display:none; gap:8px;
+  .stats{
+    margin-top:10px; font-size:12px; color:var(--muted); display:flex; gap:14px; flex-wrap:wrap;
   }
+  .stats b{color:var(--text);}
+  .bar-wrap{
+    margin-top:6px; height:6px; border-radius:3px; background:#0d0f14; border:1px solid var(--border); overflow:hidden;
+  }
+  .bar{height:100%; width:0%; background:var(--ok); transition:width .15s, background .15s;}
+  .link-box{margin-top:16px; display:none; gap:8px;}
   .link-box input{
     flex:1; background:#0d0f14; color:var(--accent); border:1px solid var(--border);
     border-radius:8px; padding:10px 12px; font-size:13px; font-family:monospace;
   }
   .hint{font-size:12px; color:var(--muted); margin-top:8px;}
-  .readonly-note{font-size:12px; color:var(--muted); margin-top:16px;}
   .out{
     white-space:pre-wrap; word-break:break-word; background:#0d0f14; border:1px solid var(--border);
     border-radius:8px; padding:14px; font-size:14px; line-height:1.6; max-height:60vh; overflow:auto;
   }
   .badge{display:inline-block; font-size:11px; color:var(--muted); border:1px solid var(--border);
     border-radius:6px; padding:2px 8px; margin-bottom:10px;}
-  .err{color:#ff6b6b; font-size:14px;}
+  .err{color:var(--bad); font-size:14px;}
+  .over{color:var(--bad);}
+  .warnc{color:var(--warn);}
 </style>
 </head>
 <body>
 <div class="card" id="app"></div>
 
 <script>
-const LZ = LZString;
+const LIMIT = 16000; // целевой лимит длины ссылки в символах
+
+// --- сжатие: нативный deflate-raw (встроен в браузер, без сторонних библиотек) ---
+async function compressText(str) {
+  const bytesIn = new Blob([str]);
+  const stream = bytesIn.stream().pipeThrough(new CompressionStream('deflate-raw'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function decompressBytes(bytes) {
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+  return await new Response(stream).text();
+}
+function bytesToBase64Url(bytes) {
+  let binary = '';
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function base64UrlToBytes(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+function supportsCompression() {
+  return typeof CompressionStream !== 'undefined' && typeof DecompressionStream !== 'undefined';
+}
+
 const app = document.getElementById('app');
 
 function getHashData() {
   const h = location.hash;
-  if (h.startsWith('#d=')) return decodeURIComponent(h.slice(3));
+  if (h.startsWith('#d=')) return h.slice(3);
   return null;
 }
 
@@ -75,7 +112,7 @@ function renderViewer(text) {
       <button id="copyBtn">Скопировать текст</button>
       <button class="secondary" id="newBtn">Создать новую ссылку</button>
     </div>
-    <p class="hint">Текст полностью закодирован в самой ссылке (после #), сервер и база данных не нужны.</p>
+    <p class="hint">Текст полностью закодирован в самой ссылке (после #, сжат deflate) — сервер и база данных не нужны.</p>
   `;
   document.getElementById('out').textContent = text;
   document.getElementById('copyBtn').onclick = () => {
@@ -85,26 +122,36 @@ function renderViewer(text) {
       setTimeout(() => b.textContent = old, 1200);
     });
   };
-  document.getElementById('newBtn').onclick = () => {
-    location.hash = '';
-    renderEditor();
-  };
+  document.getElementById('newBtn').onclick = () => { location.hash = ''; renderEditor(); };
 }
 
-function renderError() {
+function renderError(msg) {
   app.innerHTML = `
     <h1>Не удалось прочитать текст</h1>
-    <p class="err">Ссылка повреждена или неполная.</p>
+    <p class="err">${msg || 'Ссылка повреждена или неполная.'}</p>
     <button id="newBtn">Создать новую ссылку</button>
   `;
-  document.getElementById('newBtn').onclick = () => { location.hash=''; renderEditor(); };
+  document.getElementById('newBtn').onclick = () => { location.hash = ''; renderEditor(); };
+}
+
+function renderUnsupported() {
+  app.innerHTML = `
+    <h1>Браузер не поддерживается</h1>
+    <p class="err">Нужен современный браузер с поддержкой CompressionStream (Chrome/Edge 80+, Safari 16.4+, Firefox 113+).</p>
+  `;
 }
 
 function renderEditor() {
   app.innerHTML = `
     <h1>Текст → Ссылка</h1>
-    <p class="sub">Введите текст. Он будет закодирован прямо в ссылке — открыв её, любой человек (или программа через обычный HTTP-запрос) увидит этот текст. Ничего не хранится на сервере.</p>
+    <p class="sub">Текст сжимается (deflate) прямо в браузере и кодируется в ссылке. Открыв её, любой человек (или программа обычным HTTP-запросом) увидит текст. На сервере ничего не хранится.</p>
     <textarea id="input" placeholder="Введите текст..."></textarea>
+    <div class="stats">
+      <span>Символов: <b id="statChars">0</b></span>
+      <span>После сжатия: <b id="statBytes">0</b> байт</span>
+      <span>Длина ссылки: <b id="statUrl">0</b> / ${LIMIT}</span>
+    </div>
+    <div class="bar-wrap"><div class="bar" id="bar"></div></div>
     <div class="row">
       <button id="genBtn">Создать ссылку</button>
     </div>
@@ -112,17 +159,83 @@ function renderEditor() {
       <input type="text" id="linkOut" readonly>
       <button class="secondary" id="copyLinkBtn">Копировать</button>
     </div>
-    <p class="readonly-note">Совет: чем длиннее текст, тем длиннее получится ссылка (она сжимается, но лимиты браузеров/мессенджеров на длину URL всё равно есть).</p>
+    <p class="readonly-note hint" id="genErr"></p>
   `;
-  document.getElementById('genBtn').onclick = () => {
-    const val = document.getElementById('input').value;
+
+  const input = document.getElementById('input');
+  const statChars = document.getElementById('statChars');
+  const statBytes = document.getElementById('statBytes');
+  const statUrl = document.getElementById('statUrl');
+  const bar = document.getElementById('bar');
+  const genBtn = document.getElementById('genBtn');
+  const genErr = document.getElementById('genErr');
+
+  const baseLen = (location.origin + location.pathname + '#d=').length;
+  let debounceTimer = null;
+
+  async function updateStats() {
+    const val = input.value;
+    statChars.textContent = val.length;
+    if (!val) {
+      statBytes.textContent = '0';
+      statUrl.textContent = '0';
+      bar.style.width = '0%';
+      bar.style.background = 'var(--ok)';
+      genBtn.disabled = true;
+      return;
+    }
+    try {
+      const compressed = await compressText(val);
+      const encoded = bytesToBase64Url(compressed);
+      const urlLen = baseLen + encoded.length;
+      statBytes.textContent = compressed.length;
+      statUrl.textContent = urlLen;
+      const pct = Math.min(100, (urlLen / LIMIT) * 100);
+      bar.style.width = pct + '%';
+      if (urlLen > LIMIT) {
+        bar.style.background = 'var(--bad)';
+        statUrl.className = 'over';
+        genBtn.disabled = true;
+        genErr.textContent = `Превышен лимит на ${urlLen - LIMIT} симв. Сократите текст.`;
+        genErr.classList.add('over');
+      } else if (pct > 85) {
+        bar.style.background = 'var(--warn)';
+        statUrl.className = 'warnc';
+        genBtn.disabled = false;
+        genErr.textContent = '';
+      } else {
+        bar.style.background = 'var(--ok)';
+        statUrl.className = '';
+        genBtn.disabled = false;
+        genErr.textContent = '';
+      }
+    } catch (e) {
+      genErr.textContent = 'Ошибка сжатия: ' + e.message;
+    }
+  }
+
+  input.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(updateStats, 200);
+  });
+
+  genBtn.disabled = true;
+  genBtn.onclick = async () => {
+    const val = input.value;
     if (!val.trim()) return;
-    const compressed = LZ.compressToEncodedURIComponent(val);
-    const url = location.origin + location.pathname + '#d=' + compressed;
+    const compressed = await compressText(val);
+    const encoded = bytesToBase64Url(compressed);
+    const url = location.origin + location.pathname + '#d=' + encoded;
+    if (url.length > LIMIT) {
+      genErr.textContent = `Ссылка получилась длиной ${url.length} символов — это больше лимита ${LIMIT}. Сократите текст.`;
+      genErr.classList.add('over');
+      return;
+    }
     const box = document.getElementById('linkBox');
     box.style.display = 'flex';
     document.getElementById('linkOut').value = url;
   };
+
   document.getElementById('copyLinkBtn') && (document.getElementById('copyLinkBtn').onclick = () => {
     const el = document.getElementById('linkOut');
     el.select();
@@ -134,15 +247,17 @@ function renderEditor() {
   });
 }
 
-function boot() {
+async function boot() {
+  if (!supportsCompression()) { renderUnsupported(); return; }
   const encoded = getHashData();
   if (encoded === null) { renderEditor(); return; }
   try {
-    const text = LZ.decompressFromEncodedURIComponent(encoded);
-    if (text === null || text === '') { renderError(); return; }
+    const bytes = base64UrlToBytes(encoded);
+    const text = await decompressBytes(bytes);
+    if (!text) { renderError(); return; }
     renderViewer(text);
   } catch (e) {
-    renderError();
+    renderError(e.message);
   }
 }
 
