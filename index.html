@@ -48,10 +48,11 @@
 </div>
 
 <script>
+    // Подключаем CORS-прокси поверх оригинального API
+    const PROXY_URL = "https://workers.dev";
     const API_URL = "https://jsonblob.com/api/jsonBlob";
     const CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
-    // Функция сжатия BigInt (большого числа) в короткий код
     function toBase62(num) {
         let n = BigInt(num);
         let str = "";
@@ -63,7 +64,6 @@
         return str || "0";
     }
 
-    // Функция восстановления BigInt из короткого кода обратно
     function fromBase62(str) {
         let num = 0n;
         const base = BigInt(62);
@@ -82,10 +82,10 @@
             document.body.textContent = "Loading chart data...";
 
             try {
-                // Восстанавливаем точный ID без округлений математики
                 const blobId = fromBase62(shortCode);
 
-                const response = await fetch(`${API_URL}/${blobId}`);
+                // Чтение данных также пропускаем через прокси для надежности
+                const response = await fetch(`${PROXY_URL}${API_URL}/${blobId}`);
                 if (!response.ok) throw new Error();
                 
                 const data = await response.json();
@@ -109,31 +109,32 @@
         try { payload = JSON.parse(text); } catch(e) { payload = text; }
 
         actionBtn.disabled = true;
-        actionBtn.textContent = "Saving to free cloud storage...";
+        actionBtn.textContent = "Saving to secure cloud storage...";
 
         try {
-            const response = await fetch(API_URL, {
+            // Направляем POST запрос через прокси-сервер
+            const response = await fetch(`${PROXY_URL}${API_URL}`, {
                 method: "POST",
-                headers: { "Content-Type": "application/json", "Accept": "application/json" },
+                headers: { 
+                    "Content-Type": "application/json", 
+                    "Accept": "application/json" 
+                },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) throw new Error();
 
             const locationHeader = response.headers.get("Location");
-            // Извлекаем строку с ID
             const blobIdStr = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
             
-            // Кодируем её с помощью исправленной BigInt функции
             const shortCode = toBase62(blobIdStr);
-
             const finalUrl = window.location.origin + window.location.pathname + '#' + shortCode;
             
             linkOutput.value = finalUrl;
             resultBox.style.display = 'block';
             resultBox.scrollIntoView({ behavior: 'smooth' });
         } catch (e) {
-            alert("Error: Couldn't connect to free data storage.");
+            alert("Error: Couldn't connect to free data storage. Try again in a moment.");
         } finally {
             actionBtn.disabled = false;
             actionBtn.textContent = "Generate Short Roblox Link";
