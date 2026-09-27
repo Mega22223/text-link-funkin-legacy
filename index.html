@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chart Linker</title>
     <style>
+        /* Плоский серый дизайн в стиле GitHub для главного экрана */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
             background-color: #0d1117; color: #c9d1d9; margin: 0; padding: 40px 20px; display: flex; justify-content: center;
@@ -21,12 +22,12 @@
             border: 1px solid #30363d; padding: 12px; font-size: 13px; font-weight: 600; cursor: pointer; margin-top: 15px;
         }
         .btn:hover { background-color: #30363d; color: #f0f6fc; }
-        .btn:disabled { background-color: #0d1117; color: #8b949e; cursor: not-allowed; }
         .result-panel { display: none; margin-top: 25px; background-color: #0d1117; border: 1px solid #30363d; padding: 16px; }
         .result-title { font-size: 12px; font-weight: 600; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; }
         .link-field { width: 100%; padding: 10px; background-color: #161b22; color: #58a6ff; border: 1px solid #30363d; font-family: monospace; font-size: 13px; box-sizing: border-box; cursor: pointer; }
         .info-text { font-size: 11px; color: #8b949e; margin-top: 8px; margin-bottom: 0; }
 
+        /* СТИЛЬ РЕЖИМА "ТУПО ТЕКСТ" НА ЧЕРНОМ ФОНЕ */
         body.raw-text-mode {
             background-color: #000000; color: #ffffff; display: block; padding: 20px;
             font-family: monospace; font-size: 14px; white-space: pre-wrap; word-wrap: break-word;
@@ -38,107 +39,67 @@
 <div class="wrapper" id="mainGui">
     <label class="label-text">Paste your chart data here:</label>
     <textarea id="textBox" placeholder="..."></textarea>
-    <button class="btn" id="actionBtn" onclick="generateShortLink()">Generate Short Roblox Link</button>
+    <button class="btn" onclick="generateLink()">Generate Roblox Link</button>
 
     <div id="resultBox" class="result-panel">
-        <div class="result-title">Short Link Generated:</div>
+        <div class="result-title">Generated Link:</div>
         <input type="text" id="linkOutput" class="link-field" readonly onclick="this.select()">
         <p class="info-text">Click inside the field to auto-select, then press Ctrl+C to copy.</p>
     </div>
 </div>
 
 <script>
-    // Подключаем CORS-прокси поверх оригинального API
-    const PROXY_URL = "https://workers.dev";
-    const API_URL = "https://jsonblob.com/api/jsonBlob";
-    const CHARSET = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-    function toBase62(num) {
-        let n = BigInt(num);
-        let str = "";
-        const base = BigInt(62);
-        while (n > 0n) {
-            str = CHARSET[Number(n % base)] + str;
-            n = n / base;
-        }
-        return str || "0";
+    // Безопасное декодирование Base64 с поддержкой UTF-8 (русских букв/символов)
+    function b64ToUtf8(str) {
+        return decodeURIComponent(atob(str).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
     }
 
-    function fromBase62(str) {
-        let num = 0n;
-        const base = BigInt(62);
-        for (let i = 0; i < str.length; i++) {
-            num = num * base + BigInt(CHARSET.indexOf(str[i]));
-        }
-        return num.toString();
+    // Безопасное кодирование в Base64 с поддержкой UTF-8
+    function utf8ToB64(str) {
+        return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, function(match, p1) {
+            return String.fromCharCode('0x' + p1);
+        }));
     }
 
-    window.addEventListener('DOMContentLoaded', async () => {
+    window.addEventListener('DOMContentLoaded', () => {
+        // Если в адресной строке есть хэш после знака #
         if (window.location.hash) {
-            const shortCode = window.location.hash.substring(1);
-            
-            document.getElementById('mainGui').remove();
-            document.body.className = "raw-text-mode";
-            document.body.textContent = "Loading chart data...";
-
             try {
-                const blobId = fromBase62(shortCode);
-
-                // Чтение данных также пропускаем через прокси для надежности
-                const response = await fetch(`${PROXY_URL}${API_URL}/${blobId}`);
-                if (!response.ok) throw new Error();
+                const base64Data = window.location.hash.substring(1);
+                const decodedText = b64ToUtf8(base64Data);
                 
-                const data = await response.json();
-                document.body.textContent = typeof data === 'object' ? JSON.stringify(data, null, 4) : data;
+                -- Уничтожаем весь GUI генератора
+                document.getElementById('mainGui').remove();
+                
+                -- Активируем полноэкранный текстовый режим
+                document.body.className = "raw-text-mode";
+                document.body.textContent = decodedText;
             } catch (e) {
-                document.body.textContent = "Error: Failed to fetch chart data. The link might be expired.";
+                document.body.textContent = "Error: Failed to decode text data from URL. The link might be corrupted.";
             }
         }
     });
 
-    async function generateShortLink() {
+    function generateLink() {
         const textBox = document.getElementById('textBox');
         const resultBox = document.getElementById('resultBox');
         const linkOutput = document.getElementById('linkOutput');
-        const actionBtn = document.getElementById('actionBtn');
         
-        let text = textBox.value.trim();
-        if (!text) return alert("Please paste your chart data first!");
-
-        let payload;
-        try { payload = JSON.parse(text); } catch(e) { payload = text; }
-
-        actionBtn.disabled = true;
-        actionBtn.textContent = "Saving to secure cloud storage...";
-
-        try {
-            // Направляем POST запрос через прокси-сервер
-            const response = await fetch(`${PROXY_URL}${API_URL}`, {
-                method: "POST",
-                headers: { 
-                    "Content-Type": "application/json", 
-                    "Accept": "application/json" 
-                },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error();
-
-            const locationHeader = response.headers.get("Location");
-            const blobIdStr = locationHeader.substring(locationHeader.lastIndexOf('/') + 1);
-            
-            const shortCode = toBase62(blobIdStr);
-            const finalUrl = window.location.origin + window.location.pathname + '#' + shortCode;
-            
-            linkOutput.value = finalUrl;
-            resultBox.style.display = 'block';
-            resultBox.scrollIntoView({ behavior: 'smooth' });
-        } catch (e) {
-            alert("Error: Couldn't connect to free data storage. Try again in a moment.");
-        } finally {
-            actionBtn.disabled = false;
-            actionBtn.textContent = "Generate Short Roblox Link";
+        const text = textBox.value.trim();
+        if (!text) {
+            alert("Please paste your chart data first!");
+            return;
         }
+
+        // Кодируем текст прямо в хэш адресной строки
+        const base64Part = utf8ToB64(text);
+        const finalUrl = window.location.origin + window.location.pathname + '#' + base64Part;
+        
+        linkOutput.value = finalUrl;
+        resultBox.style.display = 'block';
+        resultBox.scrollIntoView({ behavior: 'smooth' });
     }
 </script>
 
