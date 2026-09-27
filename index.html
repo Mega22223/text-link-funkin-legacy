@@ -50,17 +50,6 @@
   }
   .hint{font-size:12px; color:var(--muted); margin-top:8px;}
   .err{color:var(--bad); font-size:12px; margin-top:8px;}
-
-  /* ---- raw text view (no GUI) ---- */
-  body.raw{background:#0b0c0f;}
-  body.raw #app{
-    display:block; min-height:auto; padding:0; align-items:initial; justify-content:initial;
-  }
-  #raw{
-    margin:0; padding:16px; white-space:pre-wrap; word-break:break-word;
-    font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;
-    font-size:14px; line-height:1.5; color:var(--text);
-  }
 </style>
 </head>
 <body>
@@ -94,36 +83,17 @@ async function saveText(text, attempt = 0) {
   return id;
 }
 
-async function loadText(id) {
-  const { data, error } = await supabaseClient
-    .from("snippets")
-    .select("content")
-    .eq("id", id)
-    .single();
-  if (error) throw error;
-  return data.content;
-}
-
 const app = document.getElementById("app");
 
-function getHashId() {
-  const h = location.hash;
-  if (h.startsWith("#s=")) return h.slice(3);
-  return null;
-}
-
-// plain text output, no card, no buttons, no styling chrome
-function renderRaw(text) {
-  document.body.classList.add("raw");
-  document.title = "";
-  app.innerHTML = `<pre id="raw"></pre>`;
-  document.getElementById("raw").textContent = text;
-}
-
-function renderRawMessage(msg) {
-  document.body.classList.add("raw");
-  app.innerHTML = `<pre id="raw"></pre>`;
-  document.getElementById("raw").textContent = msg;
+function buildApiLink(id) {
+  // Direct Supabase REST endpoint. Any plain HTTP GET (browser, curl, Roblox HttpService, etc.)
+  // returns raw JSON with no HTML/JS involved: [{"content":"..."}]
+  const params = new URLSearchParams({
+    id: "eq." + id,
+    select: "content",
+    apikey: SUPABASE_ANON_KEY
+  });
+  return `${SUPABASE_URL}/rest/v1/snippets?${params.toString()}`;
 }
 
 function renderEditor() {
@@ -132,7 +102,7 @@ function renderEditor() {
   app.innerHTML = `
     <div class="card">
       <h1>Text to link</h1>
-      <p class="sub">Paste your text below and get a link. Opening that link returns the text directly, with no interface.</p>
+      <p class="sub">Paste your text below and get a link. Requesting that link returns raw JSON with your text — no HTML, no interface.</p>
       <textarea id="input" placeholder="Enter your text..."></textarea>
       <div class="stats">Characters: <b id="statChars">0</b></div>
       <div class="row">
@@ -162,7 +132,7 @@ function renderEditor() {
     genErr.textContent = "";
     try {
       const id = await saveText(val);
-      const url = location.origin + location.pathname + "#s=" + id;
+      const url = buildApiLink(id);
       const box = document.getElementById("linkBox");
       box.style.display = "flex";
       document.getElementById("linkOut").value = url;
@@ -184,20 +154,7 @@ function renderEditor() {
   };
 }
 
-async function boot() {
-  const id = getHashId();
-  if (!id) { renderEditor(); return; }
-  renderRawMessage("Loading...");
-  try {
-    const text = await loadText(id);
-    renderRaw(text);
-  } catch (e) {
-    renderRawMessage("Not found.");
-  }
-}
-
-window.addEventListener("hashchange", boot);
-boot();
+renderEditor();
 </script>
 </body>
 </html>
