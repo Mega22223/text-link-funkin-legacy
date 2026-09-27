@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roblox Text Sharer</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #1a1a1a;
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: #2a2a2a;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        h1 { margin-top: 0; color: #00ffff; }
+        textarea {
+            width: 100%;
+            height: 300px;
+            background: #111;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 10px;
+            font-family: monospace;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        button {
+            background: #00ffff;
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-size: 16px;
+            transition: 0.2s;
+        }
+        button:hover { background: #00cccc; transform: scale(1.02); }
+        .result-box {
+            margin-top: 20px;
+            display: none;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            background: #333;
+            color: #fff;
+            border: 1px solid #555;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .mode-indicator {
+            background: #3a3a3a;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            border-left: 5px solid #00ffff;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1 id="title">Text Sharer for Roblox</h1>
+    
+    <div id="viewMode" class="mode-indicator" style="display: none;">
+        <strong>Viewing shared text.</strong> <a href="#" id="newBtn" style="color: #00ffff; margin-left: 10px;">Create New Text</a>
+    </div>
+
+    <textarea id="textBox" placeholder="Paste your massive text here..."></textarea>
+    
+    <button id="actionBtn" onclick="generateLink()">Generate Link</button>
+
+    <div id="resultBox" class="result-box">
+        <h3>Your Link:</h3>
+        <input type="text" id="linkOutput" readonly onclick="this.select()">
+        <p style="font-size: 12px; color: #aaa; margin-top: 5px;">Click on the link to select all, then press Ctrl+C to copy.</p>
+    </div>
+</div>
+
+<script>
+    const textBox = document.getElementById('textBox');
+    const actionBtn = document.getElementById('actionBtn');
+    const resultBox = document.getElementById('resultBox');
+    const linkOutput = document.getElementById('linkOutput');
+    const viewMode = document.getElementById('viewMode');
+    const newBtn = document.getElementById('newBtn');
+
+    // Проверяем, открыта ли ссылка с текстом
+    window.addEventListener('DOMContentLoaded', () => {
+        if (window.location.hash) {
+            try {
+                // Извлекаем хэш, декодируем из Base64 обратно в текст UTF-8
+                const base64 = window.location.hash.substring(1);
+                const decodedText = decodeURIComponent(atob(base64));
+                
+                textBox.value = decodedText;
+                textBox.setAttribute('readonly', 'true'); // Запрещаем редактировать чужой текст
+                
+                // Переключаем интерфейс в режим просмотра
+                viewMode.style.display = 'block';
+                actionBtn.style.display = 'none';
+            } catch (e) {
+                alert("Failed to decode text from URL. The link might be broken.");
+            }
+        }
+    });
+
+    // Функция создания ссылки
+    function generateLink() {
+        const text = textBox.value.trim();
+        if (!text) {
+            alert("Please paste some text first!");
+            return;
+        }
+
+        // Кодируем текст в Base64, безопасный для URL
+        const base64 = btoa(encodeURIComponent(text));
+        
+        // Формируем финальную ссылку
+        const finalUrl = window.location.origin + window.location.pathname + '#' + base64;
+        
+        // Выводим результат
+        linkOutput.value = finalUrl;
+        resultBox.style.display = 'block';
+    }
+
+    // Кнопка "Создать новый" просто очищает хэш и перезагружает страницу
+    newBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.hash = '';
+        window.location.reload();
+    });
+</script>
+
+</body>
+</html>
