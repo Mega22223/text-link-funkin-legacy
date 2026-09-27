@@ -3,91 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roblox Text Sharer</title>
+    <title>Chart Linker</title>
     <style>
+        /* Олдскульный плоский дизайн в серых тонах, углы строго 0px */
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #1a1a1a;
-            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: #0d1117; /* Темный фон */
+            color: #c9d1d9;
             margin: 0;
-            padding: 20px;
+            padding: 40px 20px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            justify-content: center;
         }
-        .container {
+
+        .wrapper {
             width: 100%;
-            max-width: 800px;
-            background: #2a2a2a;
+            max-width: 650px;
+            background-color: #161b22; /* Серый блок */
+            border: 1px solid #30363d; /* Четкая рамка */
+            border-radius: 0px; /* Строго острые углы */
             padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            box-sizing: border-box;
         }
-        h1 { margin-top: 0; color: #00ffff; }
+
+        h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-top: 0;
+            margin-bottom: 20px;
+            color: #f0f6fc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+        }
+
+        /* Поле ввода текста */
         textarea {
             width: 100%;
-            height: 300px;
-            background: #111;
-            color: #fff;
-            border: 1px solid #444;
-            border-radius: 5px;
-            padding: 10px;
-            font-family: monospace;
-            resize: vertical;
+            height: 280px;
+            background-color: #0d1117; /* Более темное поле для контраста */
+            color: #e6edf3;
+            border: 1px solid #30363d;
+            border-radius: 0px; /* Строго острые углы */
+            padding: 12px;
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace;
+            font-size: 13px;
+            resize: none;
             box-sizing: border-box;
         }
-        button {
-            background: #00ffff;
-            color: #000;
-            border: none;
-            padding: 12px 25px;
-            font-weight: bold;
-            border-radius: 5px;
+
+        textarea:focus {
+            outline: none;
+            border-color: #58a6ff; /* Синяя рамка при фокусе */
+        }
+
+        /* Кнопка генерации */
+        .btn {
+            display: block;
+            width: 100%;
+            background-color: #21262d; /* Серая кнопка в стиле GitHub */
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 0px; /* Строго острые углы */
+            padding: 12px;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
             margin-top: 15px;
-            font-size: 16px;
-            transition: 0.2s;
+            transition: background-color 0.1s, color 0.1s;
         }
-        button:hover { background: #00cccc; transform: scale(1.02); }
-        .result-box {
-            margin-top: 20px;
+
+        .btn:hover {
+            background-color: #30363d;
+            color: #f0f6fc;
+        }
+
+        /* Блок результата */
+        .result-panel {
             display: none;
+            margin-top: 25px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            border-radius: 0px; /* Строго острые углы */
+            padding: 16px;
         }
-        input[type="text"] {
+
+        .result-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #8b949e;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Поле с готовой ссылкой */
+        .link-field {
             width: 100%;
             padding: 10px;
-            background: #333;
-            color: #fff;
-            border: 1px solid #555;
-            border-radius: 5px;
+            background-color: #161b22;
+            color: #58a6ff;
+            border: 1px solid #30363d;
+            border-radius: 0px; /* Строго острые углы */
+            font-family: monospace;
+            font-size: 13px;
             box-sizing: border-box;
+            cursor: pointer;
         }
-        .mode-indicator {
-            background: #3a3a3a;
-            padding: 10px;
-            border-radius: 5px;
+
+        .info-text {
+            font-size: 11px;
+            color: #8b949e;
+            margin-top: 8px;
+            margin-bottom: 0;
+        }
+
+        /* Индикатор режима просмотра */
+        .view-mode-bar {
+            display: none;
+            background-color: #161b22;
+            border: 1px solid #388bfd;
+            color: #58a6ff;
+            padding: 12px;
+            border-radius: 0px; /* Строго острые углы */
+            font-size: 13px;
             margin-bottom: 15px;
-            border-left: 5px solid #00ffff;
+            text-align: center;
         }
+
+        .view-mode-bar a {
+            color: #f0f6fc;
+            font-weight: 600;
+            margin-left: 10px;
+            text-decoration: none;
+        }
+        .view-mode-bar a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1 id="title">Text Sharer for Roblox</h1>
+<div class="wrapper">
+    <h2>Chart Linker</h2>
     
-    <div id="viewMode" class="mode-indicator" style="display: none;">
-        <strong>Viewing shared text.</strong> <a href="#" id="newBtn" style="color: #00ffff; margin-left: 10px;">Create New Text</a>
+    <div id="viewMode" class="view-mode-bar">
+        Viewing shared chart data. <a href="#" id="newBtn">Create New</a>
     </div>
 
-    <textarea id="textBox" placeholder="Paste your massive text here..."></textarea>
+    <textarea id="textBox" placeholder="Paste your chart data here..."></textarea>
     
-    <button id="actionBtn" onclick="generateLink()">Generate Link</button>
+    <button id="actionBtn" class="btn" onclick="generateLink()">Generate Roblox Link</button>
 
-    <div id="resultBox" class="result-box">
-        <h3>Your Link:</h3>
-        <input type="text" id="linkOutput" readonly onclick="this.select()">
-        <p style="font-size: 12px; color: #aaa; margin-top: 5px;">Click on the link to select all, then press Ctrl+C to copy.</p>
+    <div id="resultBox" class="result-panel">
+        <div class="result-title">Generated Link</div>
+        <input type="text" id="linkOutput" class="link-field" readonly onclick="this.select()">
+        <p class="info-text">Click inside the field to auto-select, then press Ctrl+C to copy.</p>
     </div>
 </div>
 
@@ -99,46 +169,39 @@
     const viewMode = document.getElementById('viewMode');
     const newBtn = document.getElementById('newBtn');
 
-    // Проверяем, открыта ли ссылка с текстом
     window.addEventListener('DOMContentLoaded', () => {
         if (window.location.hash) {
             try {
-                // Извлекаем хэш, декодируем из Base64 обратно в текст UTF-8
                 const base64 = window.location.hash.substring(1);
                 const decodedText = decodeURIComponent(atob(base64));
                 
                 textBox.value = decodedText;
-                textBox.setAttribute('readonly', 'true'); // Запрещаем редактировать чужой текст
+                textBox.setAttribute('readonly', 'true');
                 
-                // Переключаем интерфейс в режим просмотра
                 viewMode.style.display = 'block';
                 actionBtn.style.display = 'none';
             } catch (e) {
-                alert("Failed to decode text from URL. The link might be broken.");
+                alert("Error: Couldn't decode the chart data from this URL.");
             }
         }
     });
 
-    // Функция создания ссылки
     function generateLink() {
         const text = textBox.value.trim();
         if (!text) {
-            alert("Please paste some text first!");
+            alert("Please paste your chart data first!");
             return;
         }
 
-        // Кодируем текст в Base64, безопасный для URL
         const base64 = btoa(encodeURIComponent(text));
-        
-        // Формируем финальную ссылку
         const finalUrl = window.location.origin + window.location.pathname + '#' + base64;
         
-        // Выводим результат
         linkOutput.value = finalUrl;
         resultBox.style.display = 'block';
+        
+        resultBox.scrollIntoView({ behavior: 'smooth' });
     }
 
-    // Кнопка "Создать новый" просто очищает хэш и перезагружает страницу
     newBtn.addEventListener('click', (e) => {
         e.preventDefault();
         window.location.hash = '';
