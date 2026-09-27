@@ -1,36 +1,40 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Text → Link</title>
+<title>Text to link</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#0f1115; --panel:#171a21; --border:#2a2f3a;
     --text:#e8eaed; --muted:#9aa3b2; --accent:#5b8cff; --accent2:#4173e6;
-    --ok:#3ecf7a; --bad:#ff6b6b;
+    --bad:#ff6b6b;
   }
-  *{box-sizing:border-box;}
+  *{box-sizing:border-box; border-radius:0 !important;}
+  html, body{height:100%;}
   body{
-    margin:0; min-height:100vh; background:var(--bg); color:var(--text);
+    margin:0; background:var(--bg); color:var(--text);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-    display:flex; align-items:center; justify-content:center; padding:24px;
+  }
+  /* ---- editor (form) view ---- */
+  #app{
+    min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px;
   }
   .card{
-    width:100%; max-width:640px; background:var(--panel); border:1px solid var(--border);
-    border-radius:14px; padding:28px; box-shadow:0 10px 30px rgba(0,0,0,.3);
+    width:100%; max-width:520px; background:var(--panel); border:1px solid var(--border);
+    padding:28px;
   }
-  h1{font-size:20px; margin:0 0 4px;}
-  p.sub{color:var(--muted); font-size:13px; margin:0 0 20px;}
+  h1{font-size:20px; margin:0 0 4px; letter-spacing:.2px;}
+  p.sub{color:var(--muted); font-size:13px; margin:0 0 20px; line-height:1.5;}
   textarea{
     width:100%; min-height:200px; resize:vertical; background:#0d0f14; color:var(--text);
-    border:1px solid var(--border); border-radius:8px; padding:12px; font-size:14px;
+    border:1px solid var(--border); padding:12px; font-size:14px;
     font-family:inherit; line-height:1.5;
   }
   textarea:focus, input:focus{outline:2px solid var(--accent); outline-offset:1px;}
   button{
-    background:var(--accent); color:#fff; border:none; border-radius:8px;
+    background:var(--accent); color:#fff; border:none;
     padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; margin-top:14px;
   }
   button:hover{background:var(--accent2);}
@@ -42,27 +46,31 @@
   .link-box{margin-top:16px; display:none; gap:8px;}
   .link-box input{
     flex:1; background:#0d0f14; color:var(--accent); border:1px solid var(--border);
-    border-radius:8px; padding:10px 12px; font-size:13px; font-family:monospace;
+    padding:10px 12px; font-size:13px; font-family:monospace;
   }
   .hint{font-size:12px; color:var(--muted); margin-top:8px;}
-  .out{
-    white-space:pre-wrap; word-break:break-word; background:#0d0f14; border:1px solid var(--border);
-    border-radius:8px; padding:14px; font-size:14px; line-height:1.6; max-height:60vh; overflow:auto;
+  .err{color:var(--bad); font-size:12px; margin-top:8px;}
+
+  /* ---- raw text view (no GUI) ---- */
+  body.raw{background:#0b0c0f;}
+  body.raw #app{
+    display:block; min-height:auto; padding:0; align-items:initial; justify-content:initial;
   }
-  .badge{display:inline-block; font-size:11px; color:var(--muted); border:1px solid var(--border);
-    border-radius:6px; padding:2px 8px; margin-bottom:10px;}
-  .err{color:var(--bad); font-size:14px;}
-  .spin{color:var(--muted); font-size:14px;}
+  #raw{
+    margin:0; padding:16px; white-space:pre-wrap; word-break:break-word;
+    font-family:ui-monospace,SFMono-Regular,Consolas,"Courier New",monospace;
+    font-size:14px; line-height:1.5; color:var(--text);
+  }
 </style>
 </head>
 <body>
-<div class="card" id="app"></div>
+<div id="app"></div>
 
 <script>
-// ==== ЗАПОЛНИ СВОИМИ ЗНАЧЕНИЯМИ ИЗ Project Settings -> API ====
+// ==== Supabase project credentials ====
 const SUPABASE_URL = "https://bfdzbjhtjstxfxfqfcit.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_i2uuK7F-iC1RdX6XQ5uUWw_zVdPK3aO";
-// ===============================================================
+// =======================================
 
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const ID_LEN = 8;
@@ -80,7 +88,7 @@ async function saveText(text, attempt = 0) {
   const id = generateId();
   const { error } = await supabaseClient.from("snippets").insert({ id, content: text });
   if (error) {
-    if (error.code === "23505" && attempt < 5) return saveText(text, attempt + 1); // коллизия id — редко, повторяем
+    if (error.code === "23505" && attempt < 5) return saveText(text, attempt + 1); // id collision, retry
     throw error;
   }
   return id;
@@ -104,54 +112,38 @@ function getHashId() {
   return null;
 }
 
-function renderLoading() {
-  app.innerHTML = `<p class="spin">Загрузка...</p>`;
+// plain text output, no card, no buttons, no styling chrome
+function renderRaw(text) {
+  document.body.classList.add("raw");
+  document.title = "";
+  app.innerHTML = `<pre id="raw"></pre>`;
+  document.getElementById("raw").textContent = text;
 }
 
-function renderViewer(text) {
-  app.innerHTML = `
-    <span class="badge">Текст из ссылки</span>
-    <div class="out" id="out"></div>
-    <div class="row">
-      <button id="copyBtn">Скопировать текст</button>
-      <button class="secondary" id="newBtn">Создать новую ссылку</button>
-    </div>
-    <p class="hint">Текст хранится в базе Supabase, в ссылке — только короткий идентификатор.</p>
-  `;
-  document.getElementById("out").textContent = text;
-  document.getElementById("copyBtn").onclick = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      const b = document.getElementById("copyBtn");
-      const old = b.textContent; b.textContent = "Скопировано!";
-      setTimeout(() => b.textContent = old, 1200);
-    });
-  };
-  document.getElementById("newBtn").onclick = () => { location.hash = ""; renderEditor(); };
-}
-
-function renderError(msg) {
-  app.innerHTML = `
-    <h1>Не удалось загрузить текст</h1>
-    <p class="err">${msg || "Запись не найдена — возможно, ссылка неверна или запись удалена."}</p>
-    <button id="newBtn">Создать новую ссылку</button>
-  `;
-  document.getElementById("newBtn").onclick = () => { location.hash = ""; renderEditor(); };
+function renderRawMessage(msg) {
+  document.body.classList.add("raw");
+  app.innerHTML = `<pre id="raw"></pre>`;
+  document.getElementById("raw").textContent = msg;
 }
 
 function renderEditor() {
+  document.body.classList.remove("raw");
+  document.title = "Text to link";
   app.innerHTML = `
-    <h1>Текст → Ссылка</h1>
-    <p class="sub">Текст сохраняется в базе данных, а в ссылке остаётся только короткий идентификатор — ссылка получается минимальной длины независимо от размера текста.</p>
-    <textarea id="input" placeholder="Введите текст..."></textarea>
-    <div class="stats">Символов: <b id="statChars">0</b></div>
-    <div class="row">
-      <button id="genBtn">Создать ссылку</button>
+    <div class="card">
+      <h1>Text to link</h1>
+      <p class="sub">Paste your text below and get a link. Opening that link returns the text directly, with no interface.</p>
+      <textarea id="input" placeholder="Enter your text..."></textarea>
+      <div class="stats">Characters: <b id="statChars">0</b></div>
+      <div class="row">
+        <button id="genBtn">Create link</button>
+      </div>
+      <div class="link-box row" id="linkBox">
+        <input type="text" id="linkOut" readonly>
+        <button class="secondary" id="copyLinkBtn">Copy</button>
+      </div>
+      <p class="err" id="genErr"></p>
     </div>
-    <div class="link-box row" id="linkBox">
-      <input type="text" id="linkOut" readonly>
-      <button class="secondary" id="copyLinkBtn">Копировать</button>
-    </div>
-    <p class="hint err" id="genErr"></p>
   `;
 
   const input = document.getElementById("input");
@@ -175,7 +167,7 @@ function renderEditor() {
       box.style.display = "flex";
       document.getElementById("linkOut").value = url;
     } catch (e) {
-      genErr.textContent = "Ошибка сохранения: " + e.message + " (проверь SUPABASE_URL / ANON_KEY и политики RLS)";
+      genErr.textContent = "Error saving text: " + e.message;
     } finally {
       genBtn.disabled = false;
     }
@@ -186,7 +178,7 @@ function renderEditor() {
     el.select();
     navigator.clipboard.writeText(el.value).then(() => {
       const b = document.getElementById("copyLinkBtn");
-      const old = b.textContent; b.textContent = "Готово!";
+      const old = b.textContent; b.textContent = "Copied!";
       setTimeout(() => b.textContent = old, 1200);
     });
   };
@@ -195,12 +187,12 @@ function renderEditor() {
 async function boot() {
   const id = getHashId();
   if (!id) { renderEditor(); return; }
-  renderLoading();
+  renderRawMessage("Loading...");
   try {
     const text = await loadText(id);
-    renderViewer(text);
+    renderRaw(text);
   } catch (e) {
-    renderError();
+    renderRawMessage("Not found.");
   }
 }
 
